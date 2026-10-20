@@ -142,7 +142,9 @@
 </div>
 
 <script>
-// GANTI DENGAN URL APPS SCRIPT ANDA
+// ============================================================
+// GANTI DENGAN URL APPS SCRIPT ANDA (Yang sudah di Deploy Ulang)
+// ============================================================
 const API_URL = "https://script.google.com/macros/s/AKfycbyevpOdfxaKk7N1QkWljFWJm_KYaRFjOY5pUeVj5joITWVG26bo2Sjxu1m4ESXSTAxYkw/exec"; 
 
 const video = document.getElementById('video');
@@ -237,49 +239,41 @@ async function onBarcodeScanned(text) {
   await lookupBarcode(text);
 }
 
-// ============================================================
-// LOGIKA UTAMA: MENGAMBIL DATA DARI SERVER
-// ============================================================
 async function lookupBarcode(text) {
   const barcode = String(text || '').trim();
   if (!barcode) return;
 
-  // Reset form ke mode loading
   namaEl.value = 'Mencari...';
   qtySJEl.value = ''; 
   qtyFisikEl.value = '';
   isBarangValid = false;
   addBtn.disabled = true;
-  hitungSelisih(); // reset box selisih
+  hitungSelisih(); 
 
   try {
     const res = await fetch(API_URL + '?barcode=' + encodeURIComponent(barcode), { method: 'GET' });
     const data = await res.json();
 
     if (data.found && data.item) {
-      // Barang ditemukan di master
       namaEl.value = data.item.nama || '-';
       
-      // Qty SJ otomatis terisi (jika di spreadsheet ada angkanya)
-      const qtySJVal = data.item.qtySJ;
-      qtySJEl.value = (qtySJVal !== null && qtySJVal !== undefined) ? qtySJVal : 0; 
+      // Pastikan qtySJ diambil dengan benar
+      const valSJ = data.item.qtySJ;
+      qtySJEl.value = (valSJ !== null && valSJ !== undefined) ? valSJ : 0; 
       
       isBarangValid = true;
-      
-      // Pindahkan fokus ke input fisik
       qtyFisikEl.focus();
       
-      // Cek apakah Qty SJ ada angkanya
       if (Number(qtySJEl.value) > 0) {
         showStatus('✅ Barang ditemukan. Silakan masukkan Qty Fisik.', 'success');
       } else {
-        showStatus('⚠️ Barang ditemukan, tapi Qty Surat Jalan masih 0/kosong di Sheet.', 'error');
+        showStatus('⚠️ Barang ditemukan, tapi Qty Surat Jalan 0/kosong di Sheet.', 'error');
       }
 
-      validateForm(); // Aktifkan tombol tambah jika syarat terpenuhi
+      validateForm(); 
     } else {
-      namaEl.value = 'Tidak ditemukan di master';
-      showStatus('❌ Barcode tidak terdaftar di Sheet Barang', 'error');
+      namaEl.value = 'Tidak ditemukan';
+      showStatus('❌ Barcode tidak terdaftar di Sheet CekSuratJalan', 'error');
     }
   } catch (err) {
     namaEl.value = 'Error koneksi';
@@ -287,9 +281,6 @@ async function lookupBarcode(text) {
   }
 }
 
-// ============================================================
-// LOGIKA HITUNG SELISIH
-// ============================================================
 function hitungSelisih() {
   const sj = parseFloat(qtySJEl.value) || 0;
   const fisik = parseFloat(qtyFisikEl.value);
