@@ -43,7 +43,7 @@
   .btn-cam { width: 48px; border: none; border-radius: 8px; background: #3b82f6; color: #fff; font-size: 20px; }
   .qty-row { display: flex; gap: 12px; }
   .qty-row .form-group { flex: 1; }
-  
+
   /* Selisih Box */
   #selisihBox { padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 12px; border: 1.5px solid transparent; }
   .selisih-pas { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
@@ -51,16 +51,21 @@
   .selisih-lebih { background: #fef9c3; color: #854d0e; border-color: #fef08a; }
   .selisih-kosong { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
 
+  /* Reason */
+  #reason { font-weight: 600; text-align: center; }
+
   .btn-add { width: 100%; padding: 14px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; margin-top: 8px; }
   .btn-add:disabled { background: #94a3b8; }
 
   /* Tabel */
+  .table-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; }
+  .table-header h2 { font-size: 15px; color: #334155; }
   .table-container { background: #fff; border-radius: 12px; overflow-x: auto; border: 1px solid #e2e8f0; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { background: #f8fafc; padding: 12px 8px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; }
-  td { padding: 10px 8px; border-bottom: 1px solid #e2e8f0; }
+  th { background: #f8fafc; padding: 12px 8px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+  td { padding: 10px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
   tr.row-kurang { background: #fff1f2; } tr.row-lebih { background: #fefce8; } tr.row-pas { background: #f0fdf4; }
-  
+
   .btn-action { padding: 6px 8px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
   .btn-edit { background: #f59e0b; color: #fff; margin-right: 4px; }
   .btn-del { background: #ef4444; color: #fff; }
@@ -96,12 +101,12 @@
         <button class="btn-cam" id="camBtn">📷</button>
       </div>
     </div>
-    
+
     <div class="form-group">
       <label>Nama Barang</label>
       <input type="text" id="nama" readonly placeholder="Menunggu scan...">
     </div>
-    
+
     <div class="qty-row">
       <div class="form-group">
         <label>Qty Surat Jalan</label>
@@ -114,13 +119,19 @@
     </div>
 
     <div id="selisihBox" class="selisih-kosong">Selisih: - (Isi Qty Fisik)</div>
+
+    <div class="form-group" style="margin-top:12px;">
+      <label>Reason</label>
+      <input type="text" id="reason" readonly placeholder="-">
+    </div>
+
     <button class="btn-add" id="addBtn" disabled>➕ Tambahkan ke Daftar</button>
   </div>
 
   <div class="table-header"><h2>Daftar Barang (<span id="countData">0</span>)</h2></div>
   <div class="table-container">
     <table>
-      <thead><tr><th>Nama Barang</th><th>SJ</th><th>Fisik</th><th>Selisih</th><th>Aksi</th></tr></thead>
+      <thead><tr><th>Nama Barang</th><th>SJ</th><th>Fisik</th><th>Selisih</th><th>Reason</th><th>Aksi</th></tr></thead>
       <tbody id="tableBody"></tbody>
     </table>
     <div id="emptyMessage" style="padding: 20px; text-align: center; color: #64748b; font-size: 13px;">Belum ada data.</div>
@@ -145,7 +156,7 @@
 // ============================================================
 // GANTI DENGAN URL APPS SCRIPT ANDA (Yang sudah di Deploy Ulang)
 // ============================================================
-const API_URL = "https://script.google.com/macros/s/AKfycbwwhJl799jU9GDXXya_vjTqrVIlf9onmsfnsHnl9SQCPwFE2B8JLc3P3kIAgYBMoX5bAg/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbwwhJl799jU9GDXXya_vjTqrVIlf9onmsfnsHnl9SQCPwFE2B8JLc3P3kIAgYBMoX5bAg/exec";
 
 const video = document.getElementById('video');
 const camBtn = document.getElementById('camBtn');
@@ -159,18 +170,18 @@ const barcodeEl = document.getElementById('barcode');
 const namaEl = document.getElementById('nama');
 const qtySJEl = document.getElementById('qtySJ');
 const qtyFisikEl = document.getElementById('qtyFisik');
+const reasonEl = document.getElementById('reason');
 const selisihBox = document.getElementById('selisihBox');
 const tableBody = document.getElementById('tableBody');
 const emptyMessage = document.getElementById('emptyMessage');
 const countDataEl = document.getElementById('countData');
-const badgeCount = document.getElementById('badgeCount');
 
 let codeReader = null;
 let isScanning = false;
 let debounceTimer = null;
 let streamRef = null;
 let isBarangValid = false;
-let listData = []; 
+let listData = [];
 let editIndex = -1;
 
 function showStatus(msg, type = 'info') {
@@ -200,7 +211,7 @@ async function openCamera() {
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 }, advanced: [{ focusMode: 'continuous' }] }
     };
 
-    try { streamRef = await navigator.mediaDevices.getUserMedia(constraints); } 
+    try { streamRef = await navigator.mediaDevices.getUserMedia(constraints); }
     catch (e) { streamRef = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); }
 
     video.srcObject = streamRef;
@@ -234,7 +245,7 @@ async function onBarcodeScanned(text) {
   if (!isScanning) return;
   isScanning = false;
   beep();
-  closeCamera(); 
+  closeCamera();
   barcodeEl.value = text;
   await lookupBarcode(text);
 }
@@ -244,11 +255,12 @@ async function lookupBarcode(text) {
   if (!barcode) return;
 
   namaEl.value = 'Mencari...';
-  qtySJEl.value = ''; 
+  qtySJEl.value = '';
   qtyFisikEl.value = '';
+  reasonEl.value = '';
   isBarangValid = false;
   addBtn.disabled = true;
-  hitungSelisih(); 
+  hitungSelisih();
 
   try {
     const res = await fetch(API_URL + '?barcode=' + encodeURIComponent(barcode), { method: 'GET' });
@@ -256,21 +268,20 @@ async function lookupBarcode(text) {
 
     if (data.found && data.item) {
       namaEl.value = data.item.nama || '-';
-      
-      // Pastikan qtySJ diambil dengan benar
+
       const valSJ = data.item.qtySJ;
-      qtySJEl.value = (valSJ !== null && valSJ !== undefined) ? valSJ : 0; 
-      
+      qtySJEl.value = (valSJ !== null && valSJ !== undefined) ? valSJ : 0;
+
       isBarangValid = true;
       qtyFisikEl.focus();
-      
+
       if (Number(qtySJEl.value) > 0) {
         showStatus('✅ Barang ditemukan. Silakan masukkan Qty Fisik.', 'success');
       } else {
         showStatus('⚠️ Barang ditemukan, tapi Qty Surat Jalan 0/kosong di Sheet.', 'error');
       }
 
-      validateForm(); 
+      validateForm();
     } else {
       namaEl.value = 'Tidak ditemukan';
       showStatus('❌ Barcode tidak terdaftar di Sheet CekSuratJalan', 'error');
@@ -284,26 +295,33 @@ async function lookupBarcode(text) {
 function hitungSelisih() {
   const sj = parseFloat(qtySJEl.value) || 0;
   const fisik = parseFloat(qtyFisikEl.value);
-  
+
   if (isNaN(fisik)) {
     selisihBox.className = 'selisih-kosong';
     selisihBox.textContent = 'Selisih: - (Isi Qty Fisik)';
+    reasonEl.value = '';
     addBtn.disabled = true;
     return;
   }
 
   const selisih = fisik - sj;
+  let reason = 'Sesuai';
 
   if (selisih === 0) {
     selisihBox.className = 'selisih-pas';
     selisihBox.textContent = `Selisih: 0 (PAS)`;
+    reason = 'Sesuai';
   } else if (selisih < 0) {
     selisihBox.className = 'selisih-kurang';
     selisihBox.textContent = `Selisih: ${selisih} (KURANG)`;
+    reason = (sj === 0) ? 'Barang Tidak Ada di List SJ' : 'Barang Kurang';
   } else {
     selisihBox.className = 'selisih-lebih';
     selisihBox.textContent = `Selisih: +${selisih} (LEBIH)`;
+    reason = 'Barang Lebih';
   }
+
+  reasonEl.value = reason;
   validateForm();
 }
 
@@ -321,6 +339,7 @@ function tambahData() {
     listData[editIndex].qtySJ = parseFloat(qtySJEl.value) || 0;
     listData[editIndex].qtyFisik = parseFloat(qtyFisikEl.value) || 0;
     listData[editIndex].selisih = listData[editIndex].qtyFisik - listData[editIndex].qtySJ;
+    listData[editIndex].reason = reasonEl.value;
     showStatus('✅ Data diperbarui', 'success');
     editIndex = -1;
     addBtn.textContent = '➕ Tambahkan ke Daftar';
@@ -331,7 +350,8 @@ function tambahData() {
       nama: namaEl.value,
       qtySJ: parseFloat(qtySJEl.value) || 0,
       qtyFisik: parseFloat(qtyFisikEl.value) || 0,
-      selisih: (parseFloat(qtyFisikEl.value) || 0) - (parseFloat(qtySJEl.value) || 0)
+      selisih: (parseFloat(qtyFisikEl.value) || 0) - (parseFloat(qtySJEl.value) || 0),
+      reason: reasonEl.value
     });
     showStatus('✅ Barang ditambahkan', 'success');
   }
@@ -353,12 +373,17 @@ function renderTable() {
   listData.forEach((item, index) => {
     const tr = document.createElement('tr');
     tr.className = item.selisih < 0 ? 'row-kurang' : (item.selisih > 0 ? 'row-lebih' : 'row-pas');
-    
-    let txtSelisih = item.selisih > 0 ? '+' + item.selisih : item.selisih;
+
+    const txtSelisih = item.selisih > 0 ? '+' + item.selisih : item.selisih;
+    const reasonTxt = item.reason || (item.selisih === 0 ? 'Sesuai'
+                     : item.selisih > 0 ? 'Barang Lebih' : 'Barang Kurang');
 
     tr.innerHTML = `
       <td><div style="font-weight:600;font-size:12px;">${item.nama}</div><div style="font-size:10px;color:#64748b;">${item.barcode}</div></td>
-      <td>${item.qtySJ}</td><td>${item.qtyFisik}</td><td style="font-weight:bold;">${txtSelisih}</td>
+      <td>${item.qtySJ}</td>
+      <td>${item.qtyFisik}</td>
+      <td style="font-weight:bold;">${txtSelisih}</td>
+      <td style="font-size:11px;">${reasonTxt}</td>
       <td>
         <button class="btn-action btn-edit" onclick="editData(${index})">✏️</button>
         <button class="btn-action btn-del" onclick="hapusData(${index})">🗑️</button>
@@ -366,8 +391,10 @@ function renderTable() {
     `;
     tableBody.appendChild(tr);
   });
+
   countDataEl.textContent = listData.length;
-  badgeCount.textContent = listData.length;
+  const badge = document.getElementById('badgeCount');
+  if (badge) badge.textContent = listData.length;
 }
 
 window.editData = function(index) {
@@ -379,13 +406,14 @@ window.editData = function(index) {
   isBarangValid = true;
   editIndex = index;
   hitungSelisih();
+  if (item.reason) reasonEl.value = item.reason;
   addBtn.textContent = '💾 Simpan Perubahan';
-  addBtn.style.background = '#f59e0b'; 
+  addBtn.style.background = '#f59e0b';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.hapusData = function(index) {
-  if(confirm('Hapus barang ini?')) {
+  if (confirm('Hapus barang ini?')) {
     listData.splice(index, 1);
     saveDataToLocal();
     renderTable();
@@ -393,7 +421,7 @@ window.hapusData = function(index) {
 };
 
 function resetForm() {
-  barcodeEl.value = ''; namaEl.value = ''; qtySJEl.value = ''; qtyFisikEl.value = '';
+  barcodeEl.value = ''; namaEl.value = ''; qtySJEl.value = ''; qtyFisikEl.value = ''; reasonEl.value = '';
   isBarangValid = false; editIndex = -1;
   selisihBox.className = 'selisih-kosong';
   selisihBox.textContent = 'Selisih: - (Isi Qty Fisik)';
@@ -417,7 +445,7 @@ async function simpanKeSpreadsheet() {
     const data = await res.json();
 
     if (data.success) {
-      showStatus('✅ Berhasil disimpan ke Spreadsheet!', 'success');
+      showStatus('✅ ' + (data.message || 'Berhasil disimpan ke Spreadsheet!'), 'success');
       listData = []; saveDataToLocal(); renderTable(); resetForm();
     } else {
       showStatus('❌ Gagal: ' + data.message, 'error');
@@ -427,7 +455,9 @@ async function simpanKeSpreadsheet() {
     showStatus('❌ Gagal koneksi: ' + err.message, 'error');
     saveAllBtn.disabled = false;
   } finally {
-    saveAllBtn.innerHTML = '💾 Simpan ke Spreadsheet <span class="badge" id="badgeCount">'+listData.length+'</span>';
+    saveAllBtn.innerHTML = '💾 Simpan ke Spreadsheet <span class="badge" id="badgeCount">' + listData.length + '</span>';
+    const newBadge = document.getElementById('badgeCount');
+    if (newBadge) newBadge.textContent = listData.length;
   }
 }
 
@@ -443,11 +473,13 @@ function beep() {
   } catch (e) {}
 }
 
+// ============ EVENT LISTENERS ============
 camBtn.addEventListener('click', openCamera);
 closeCamBtn.addEventListener('click', closeCamera);
 addBtn.addEventListener('click', tambahData);
 saveAllBtn.addEventListener('click', simpanKeSpreadsheet);
 
+// Ketik manual barcode (debounce)
 barcodeEl.addEventListener('input', () => {
   clearTimeout(debounceTimer);
   const val = barcodeEl.value.trim();
@@ -459,7 +491,17 @@ barcodeEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); clearTimeout(debounceTimer); lookupBarcode(barcodeEl.value.trim()); }
 });
 
+// Hitung selisih saat qty fisik berubah
 qtyFisikEl.addEventListener('input', hitungSelisih);
+
+// 🔥 ENTER di Qty Fisik = langsung tambahkan ke daftar
+qtyFisikEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (!addBtn.disabled) tambahData();
+  }
+});
+
 loadData();
 </script>
 </body>
