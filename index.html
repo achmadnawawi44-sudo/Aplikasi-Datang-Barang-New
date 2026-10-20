@@ -142,10 +142,8 @@
 </div>
 
 <script>
-// ============================================================
-// GANTI DENGAN URL APPS SCRIPT ANDA (Yang sudah di Deploy Ulang)
-// ============================================================
-const API_URL = "https://script.google.com/macros/s/AKfycb.../exec"; 
+// GANTI DENGAN URL APPS SCRIPT ANDA
+const API_URL = "https://script.google.com/macros/s/AKfycbyevpOdfxaKk7N1QkWljFWJm_KYaRFjOY5pUeVj5joITWVG26bo2Sjxu1m4ESXSTAxYkw/exec"; 
 
 const video = document.getElementById('video');
 const camBtn = document.getElementById('camBtn');
@@ -239,28 +237,49 @@ async function onBarcodeScanned(text) {
   await lookupBarcode(text);
 }
 
+// ============================================================
+// LOGIKA UTAMA: MENGAMBIL DATA DARI SERVER
+// ============================================================
 async function lookupBarcode(text) {
   const barcode = String(text || '').trim();
   if (!barcode) return;
 
+  // Reset form ke mode loading
   namaEl.value = 'Mencari...';
   qtySJEl.value = ''; 
+  qtyFisikEl.value = '';
   isBarangValid = false;
   addBtn.disabled = true;
+  hitungSelisih(); // reset box selisih
 
   try {
     const res = await fetch(API_URL + '?barcode=' + encodeURIComponent(barcode), { method: 'GET' });
     const data = await res.json();
 
     if (data.found && data.item) {
+      // Barang ditemukan di master
       namaEl.value = data.item.nama || '-';
-      qtySJEl.value = data.item.qtySJ || 0; 
+      
+      // Qty SJ otomatis terisi (jika di spreadsheet ada angkanya)
+      const qtySJVal = data.item.qtySJ;
+      qtySJEl.value = (qtySJVal !== null && qtySJVal !== undefined) ? qtySJVal : 0; 
+      
       isBarangValid = true;
-      validateForm();
+      
+      // Pindahkan fokus ke input fisik
       qtyFisikEl.focus();
+      
+      // Cek apakah Qty SJ ada angkanya
+      if (Number(qtySJEl.value) > 0) {
+        showStatus('✅ Barang ditemukan. Silakan masukkan Qty Fisik.', 'success');
+      } else {
+        showStatus('⚠️ Barang ditemukan, tapi Qty Surat Jalan masih 0/kosong di Sheet.', 'error');
+      }
+
+      validateForm(); // Aktifkan tombol tambah jika syarat terpenuhi
     } else {
-      namaEl.value = 'Tidak ditemukan';
-      showStatus('❌ Barang tidak ada di master', 'error');
+      namaEl.value = 'Tidak ditemukan di master';
+      showStatus('❌ Barcode tidak terdaftar di Sheet Barang', 'error');
     }
   } catch (err) {
     namaEl.value = 'Error koneksi';
@@ -268,20 +287,21 @@ async function lookupBarcode(text) {
   }
 }
 
+// ============================================================
+// LOGIKA HITUNG SELISIH
+// ============================================================
 function hitungSelisih() {
-  const sj = parseInt(qtySJEl.value);
-  const fisik = parseInt(qtyFisikEl.value);
-
-  if (isNaN(sj) && isNaN(fisik)) {
+  const sj = parseFloat(qtySJEl.value) || 0;
+  const fisik = parseFloat(qtyFisikEl.value);
+  
+  if (isNaN(fisik)) {
     selisihBox.className = 'selisih-kosong';
     selisihBox.textContent = 'Selisih: - (Isi Qty Fisik)';
     addBtn.disabled = true;
     return;
   }
 
-  const valSJ = isNaN(sj) ? 0 : sj;
-  const valFisik = isNaN(fisik) ? 0 : fisik;
-  const selisih = valFisik - valSJ;
+  const selisih = fisik - sj;
 
   if (selisih === 0) {
     selisihBox.className = 'selisih-pas';
@@ -297,7 +317,7 @@ function hitungSelisih() {
 }
 
 function validateForm() {
-  const fisik = parseInt(qtyFisikEl.value);
+  const fisik = parseFloat(qtyFisikEl.value);
   if (isBarangValid && !isNaN(fisik)) {
     addBtn.disabled = false;
   } else {
@@ -307,8 +327,8 @@ function validateForm() {
 
 function tambahData() {
   if (editIndex > -1) {
-    listData[editIndex].qtySJ = parseInt(qtySJEl.value) || 0;
-    listData[editIndex].qtyFisik = parseInt(qtyFisikEl.value) || 0;
+    listData[editIndex].qtySJ = parseFloat(qtySJEl.value) || 0;
+    listData[editIndex].qtyFisik = parseFloat(qtyFisikEl.value) || 0;
     listData[editIndex].selisih = listData[editIndex].qtyFisik - listData[editIndex].qtySJ;
     showStatus('✅ Data diperbarui', 'success');
     editIndex = -1;
@@ -318,9 +338,9 @@ function tambahData() {
     listData.push({
       barcode: barcodeEl.value.trim(),
       nama: namaEl.value,
-      qtySJ: parseInt(qtySJEl.value) || 0,
-      qtyFisik: parseInt(qtyFisikEl.value) || 0,
-      selisih: (parseInt(qtyFisikEl.value) || 0) - (parseInt(qtySJEl.value) || 0)
+      qtySJ: parseFloat(qtySJEl.value) || 0,
+      qtyFisik: parseFloat(qtyFisikEl.value) || 0,
+      selisih: (parseFloat(qtyFisikEl.value) || 0) - (parseFloat(qtySJEl.value) || 0)
     });
     showStatus('✅ Barang ditambahkan', 'success');
   }
