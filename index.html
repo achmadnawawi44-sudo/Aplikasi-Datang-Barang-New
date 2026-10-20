@@ -44,6 +44,10 @@
   .qty-row { display: flex; gap: 12px; }
   .qty-row .form-group { flex: 1; }
 
+  /* No SJ highlight */
+  #noSuratJalan { background: #fef9c3; font-weight: 700; color: #854d0e; }
+  #noSuratJalan:focus { background: #fff; }
+
   /* Selisih Box */
   #selisihBox { padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 12px; border: 1.5px solid transparent; }
   .selisih-pas { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
@@ -51,8 +55,8 @@
   .selisih-lebih { background: #fef9c3; color: #854d0e; border-color: #fef08a; }
   .selisih-kosong { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
 
-  /* Reason */
   #reason { font-weight: 600; text-align: center; }
+  #reason.kuning { color: #854d0e; background: #fef9c3; }
 
   .btn-add { width: 100%; padding: 14px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; margin-top: 8px; }
   .btn-add:disabled { background: #94a3b8; }
@@ -94,6 +98,11 @@
   <div class="status" id="status"></div>
 
   <div class="card">
+    <div class="form-group">
+      <label>📄 Nomor Surat Jalan</label>
+      <input type="text" id="noSuratJalan" placeholder="Contoh: SJ-2026-001" autocomplete="off">
+    </div>
+
     <div class="form-group">
       <label>Barcode / QR Code</label>
       <div class="barcode-row">
@@ -154,7 +163,7 @@
 
 <script>
 // ============================================================
-// GANTI DENGAN URL APPS SCRIPT ANDA (Yang sudah di Deploy Ulang)
+// GANTI DENGAN URL APPS SCRIPT ANDA
 // ============================================================
 const API_URL = "https://script.google.com/macros/s/AKfycbwwhJl799jU9GDXXya_vjTqrVIlf9onmsfnsHnl9SQCPwFE2B8JLc3P3kIAgYBMoX5bAg/exec";
 
@@ -166,6 +175,7 @@ const statusEl = document.getElementById('status');
 const saveAllBtn = document.getElementById('saveAllBtn');
 const addBtn = document.getElementById('addBtn');
 
+const noSJEl = document.getElementById('noSuratJalan');
 const barcodeEl = document.getElementById('barcode');
 const namaEl = document.getElementById('nama');
 const qtySJEl = document.getElementById('qtySJ');
@@ -193,11 +203,14 @@ function showStatus(msg, type = 'info') {
 function loadData() {
   const saved = localStorage.getItem('suratJalanData');
   if (saved) listData = JSON.parse(saved);
+  const savedNo = localStorage.getItem('noSuratJalan');
+  if (savedNo) noSJEl.value = savedNo;
   renderTable();
 }
 
 function saveDataToLocal() {
   localStorage.setItem('suratJalanData', JSON.stringify(listData));
+  localStorage.setItem('noSuratJalan', noSJEl.value.trim());
 }
 
 async function openCamera() {
@@ -258,6 +271,7 @@ async function lookupBarcode(text) {
   qtySJEl.value = '';
   qtyFisikEl.value = '';
   reasonEl.value = '';
+  reasonEl.classList.remove('kuning');
   isBarangValid = false;
   addBtn.disabled = true;
   hitungSelisih();
@@ -275,8 +289,10 @@ async function lookupBarcode(text) {
       isBarangValid = true;
       qtyFisikEl.focus();
 
-      if (Number(qtySJEl.value) > 0) {
-        showStatus('✅ Barang ditemukan. Silakan masukkan Qty Fisik.', 'success');
+      if (data.source === 'DataBarang' || data.inSJ === false) {
+        showStatus('⚠️ Barcode tidak ada di list SJ. Barang dikenali dari DataBarang.', 'info');
+      } else if (Number(qtySJEl.value) > 0) {
+        showStatus('✅ Barang ditemukan di Surat Jalan. Silakan masukkan Qty Fisik.', 'success');
       } else {
         showStatus('⚠️ Barang ditemukan, tapi Qty Surat Jalan 0/kosong di Sheet.', 'error');
       }
@@ -284,7 +300,11 @@ async function lookupBarcode(text) {
       validateForm();
     } else {
       namaEl.value = 'Tidak ditemukan';
-      showStatus('❌ Barcode tidak terdaftar di Sheet CekSuratJalan', 'error');
+      showStatus('❌ Barcode tidak terdaftar di SJ maupun DataBarang. Tetap bisa disimpan sebagai "Tidak dikenal".', 'error');
+      // Izinkan tetap diinput agar bisa dilaporkan
+      isBarangValid = true;
+      qtySJEl.value = 0;
+      qtyFisikEl.focus();
     }
   } catch (err) {
     namaEl.value = 'Error koneksi';
@@ -300,6 +320,7 @@ function hitungSelisih() {
     selisihBox.className = 'selisih-kosong';
     selisihBox.textContent = 'Selisih: - (Isi Qty Fisik)';
     reasonEl.value = '';
+    reasonEl.classList.remove('kuning');
     addBtn.disabled = true;
     return;
   }
@@ -318,10 +339,11 @@ function hitungSelisih() {
   } else {
     selisihBox.className = 'selisih-lebih';
     selisihBox.textContent = `Selisih: +${selisih} (LEBIH)`;
-    reason = 'Barang Lebih';
+    reason = (sj === 0) ? 'Barang Tidak Ada di List SJ' : 'Barang Lebih';
   }
 
   reasonEl.value = reason;
+  reasonEl.classList.toggle('kuning', reason === 'Barang Tidak Ada di List SJ');
   validateForm();
 }
 
@@ -422,6 +444,7 @@ window.hapusData = function(index) {
 
 function resetForm() {
   barcodeEl.value = ''; namaEl.value = ''; qtySJEl.value = ''; qtyFisikEl.value = ''; reasonEl.value = '';
+  reasonEl.classList.remove('kuning');
   isBarangValid = false; editIndex = -1;
   selisihBox.className = 'selisih-kosong';
   selisihBox.textContent = 'Selisih: - (Isi Qty Fisik)';
@@ -433,6 +456,13 @@ function resetForm() {
 
 async function simpanKeSpreadsheet() {
   if (listData.length === 0) return;
+  const noSJ = noSJEl.value.trim();
+  if (!noSJ) {
+    showStatus('❌ Isi Nomor Surat Jalan terlebih dahulu!', 'error');
+    noSJEl.focus();
+    return;
+  }
+
   saveAllBtn.disabled = true;
   saveAllBtn.innerHTML = '⏳ Mengirim...';
 
@@ -440,7 +470,7 @@ async function simpanKeSpreadsheet() {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'simpanSuratJalan', items: listData })
+      body: JSON.stringify({ action: 'simpanSuratJalan', noSuratJalan: noSJ, items: listData })
     });
     const data = await res.json();
 
@@ -479,6 +509,11 @@ closeCamBtn.addEventListener('click', closeCamera);
 addBtn.addEventListener('click', tambahData);
 saveAllBtn.addEventListener('click', simpanKeSpreadsheet);
 
+// Simpan No SJ ke localStorage saat diketik
+noSJEl.addEventListener('input', () => {
+  localStorage.setItem('noSuratJalan', noSJEl.value.trim());
+});
+
 // Ketik manual barcode (debounce)
 barcodeEl.addEventListener('input', () => {
   clearTimeout(debounceTimer);
@@ -494,7 +529,7 @@ barcodeEl.addEventListener('keydown', (e) => {
 // Hitung selisih saat qty fisik berubah
 qtyFisikEl.addEventListener('input', hitungSelisih);
 
-// 🔥 ENTER di Qty Fisik = langsung tambahkan ke daftar
+// 🔥 ENTER di Qty Fisik = tambahkan ke daftar
 qtyFisikEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
