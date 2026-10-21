@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Surat Jalan - Cek Fisik</title>
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -240,6 +240,7 @@ let listData          = [];
 let editIndex         = -1;
 let torchOn           = false;
 let torchSupported    = false;
+let videoReadyHandler = null;
 
 // ============================================================
 // STATUS UI
@@ -270,7 +271,7 @@ function saveDataToLocal() {
 }
 
 // ============================================================
-// KAMERA — OPEN
+// KAMERA — OPEN (VERSI DIPERBAIKI)
 // ============================================================
 async function openCamera() {
   // Cek dukungan
@@ -291,6 +292,7 @@ async function openCamera() {
   scanLoading.style.display = 'flex';
   scanLoadingText.textContent = 'Menyalakan kamera...';
   scanHint.style.display = 'block';
+  scanHint.textContent = 'Posisikan barcode di dalam kotak';
   camBtn.disabled = true;
   isScanning = true;
   torchOn = false;
@@ -303,6 +305,7 @@ async function openCamera() {
     isScanning = false;
     camBtn.disabled = false;
     scannerModal.classList.remove('show');
+    scanLoading.style.display = 'flex';
     const map = {
       'NotAllowedError'     : 'Izin kamera ditolak. Buka setelan browser → izinkan kamera untuk situs ini, lalu refresh.',
       'NotFoundError'       : 'Tidak ada kamera terdeteksi di perangkat.',
@@ -320,9 +323,20 @@ async function openCamera() {
     video.setAttribute('playsinline', 'true');
     video.setAttribute('muted', 'true');
     video.muted = true;
-    await video.play();
 
-    // Tunggu video punya dimensi (readyState >= 2 = HAVE_CURRENT_DATA)
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(e => {
+        console.warn('Autoplay ditolak:', e.message);
+        scanHint.textContent = '👆 Ketuk layar untuk memulai kamera';
+        const startOnTap = () => {
+          video.play().catch(()=>{});
+          scanHint.textContent = 'Posisikan barcode di dalam kotak';
+        };
+        scannerModal.addEventListener('click', startOnTap, { once: true });
+      });
+    }
+
     await waitForVideoReady(5000);
   } catch (err) {
     showStatus('❌ Gagal menampilkan video: ' + err.message, 'error');
@@ -330,13 +344,11 @@ async function openCamera() {
     return;
   }
 
-  // 3) Aktifkan zoom otomatis (Android) agar barcode kecil mudah terdeteksi
+  // 3) Zoom otomatis + torch support
   await applyZoomIfSupported();
-
-  // 4) Deteksi dukungan flash/torch
   detectTorchSupport();
 
-  // 5) Jalankan decoder ZXing
+  // 4) Jalankan decoder ZXing dengan API yang BENAR
   scanLoadingText.textContent = 'Mencari barcode...';
   try {
     const hints = new Map();
@@ -355,13 +367,18 @@ async function openCamera() {
 
     codeReader = new ZXing.BrowserMultiFormatReader(hints, 250);
 
-    // decodeFromVideoElement mengembalikan Promise<IScannerControls>
-    scannerControls = await codeReader.decodeFromVideoElement(video, (result, err) => {
-      if (result && isScanning) {
-        const text = result.getText ? result.getText() : (result.text || '');
-        if (text) onBarcodeScanned(text);
+    // KUNCI: pakai decodeFromStream(stream, video, callback)
+    scannerControls = await codeReader.decodeFromStream(
+      streamRef,
+      video,
+      (result, err) => {
+        if (result && isScanning) {
+          const text = result.getText ? result.getText() : (result.text || '');
+          if (text) onBarcodeScanned(text);
+        }
+        // err = NotFoundException tiap frame — normal, abaikan
       }
-    });
+    );
 
     scanLoading.style.display = 'none';
 
@@ -391,7 +408,7 @@ function waitForVideoReady(timeoutMs = 5000) {
 // Fallback constraint bertingkat
 async function getUserMediaWithFallback() {
   const attempts = [
-    { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 }, advanced: [{ focusMode: 'continuous' }] } },
+    { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
     { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
     { audio: false, video: { facingMode: 'environment' } },
     { audio: false, video: true }
@@ -454,7 +471,7 @@ async function toggleTorch() {
 }
 
 // ============================================================
-// KAMERA — CLOSE
+// KAMERA — CLOSE (VERSI DIPERBAIKI)
 // ============================================================
 function closeCamera() {
   isScanning = false;
@@ -478,6 +495,7 @@ function closeCamera() {
 
   scannerModal.classList.remove('show');
   scanLoading.style.display = 'flex';
+  scanLoadingText.textContent = 'Menyalakan kamera...';
   camBtn.disabled = false;
   torchOn = false;
   torchBtn.textContent = '🔦 Flash';
@@ -489,7 +507,7 @@ function closeCamera() {
 async function onBarcodeScanned(text) {
   if (!isScanning) return;
   if (!text) return;
-  isScanning = false;
+  isScanning = false;   // cegah scan ganda
   beep();
   if (navigator.vibrate) navigator.vibrate(80);
   closeCamera();
@@ -501,7 +519,6 @@ async function onBarcodeScanned(text) {
 // UPLOAD GAMBAR (FALLBACK)
 // ============================================================
 uploadBtn.addEventListener('click', () => {
-  // Hentikan kamera dulu agar kamera HP tidak bentrok
   closeCamera();
   imageUpload.click();
 });
