@@ -24,12 +24,13 @@
   .scanner-modal.show { display: flex; }
   .scanner-box { width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; }
   .scanner-header { display: flex; justify-content: space-between; padding: 12px 16px; background: #111; color: #fff; }
-  .scanner-header button { background: none; border: none; color: #fff; font-size: 24px; }
-  .video-wrap { position: relative; flex: 1; background: #000; display: flex; align-items: center; justify-content: center; }
+  .scanner-header button { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
+  .video-wrap { position: relative; flex: 1; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   #video { width: 100%; height: 100%; object-fit: cover; }
   .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   .scan-frame { width: 85%; height: 40%; border: 3px solid #3b82f6; border-radius: 16px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
   .scan-hint { position: absolute; bottom: 30px; color: #fff; font-size: 13px; background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 20px; }
+  .scan-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; background: rgba(0,0,0,0.6); }
 
   /* Form */
   .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid #e2e8f0; }
@@ -40,7 +41,8 @@
   input[readonly] { background: #e2e8f0; color: #475569; font-weight: bold; }
   .barcode-row { display: flex; gap: 8px; }
   .barcode-row input { flex: 1; }
-  .btn-cam { width: 48px; border: none; border-radius: 8px; background: #3b82f6; color: #fff; font-size: 20px; }
+  .btn-cam { width: 48px; border: none; border-radius: 8px; background: #3b82f6; color: #fff; font-size: 20px; cursor: pointer; }
+  .btn-cam:disabled { background: #94a3b8; }
   .qty-row { display: flex; gap: 12px; }
   .qty-row .form-group { flex: 1; }
 
@@ -58,8 +60,8 @@
   #reason { font-weight: 600; text-align: center; }
   #reason.kuning { color: #854d0e; background: #fef9c3; }
 
-  .btn-add { width: 100%; padding: 14px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; margin-top: 8px; }
-  .btn-add:disabled { background: #94a3b8; }
+  .btn-add { width: 100%; padding: 14px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; margin-top: 8px; cursor: pointer; }
+  .btn-add:disabled { background: #94a3b8; cursor: not-allowed; }
 
   /* Tabel */
   .table-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; }
@@ -76,8 +78,8 @@
 
   /* Bottom Bar */
   .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 16px; box-shadow: 0 -4px 12px rgba(0,0,0,0.05); z-index: 100; display: flex; justify-content: center; }
-  .btn-save-all { width: 100%; max-width: 600px; padding: 16px; background: #10b981; color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; display: flex; justify-content: center; gap: 8px; }
-  .btn-save-all:disabled { background: #94a3b8; }
+  .btn-save-all { width: 100%; max-width: 600px; padding: 16px; background: #10b981; color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; display: flex; justify-content: center; gap: 8px; cursor: pointer; }
+  .btn-save-all:disabled { background: #94a3b8; cursor: not-allowed; }
   .badge { background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 12px; }
 
   .status { padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 16px; display: none; font-size: 13px; }
@@ -107,7 +109,7 @@
       <label>Barcode / QR Code</label>
       <div class="barcode-row">
         <input type="text" id="barcode" placeholder="Scan atau ketik barcode..." autocomplete="off">
-        <button class="btn-cam" id="camBtn">📷</button>
+        <button class="btn-cam" id="camBtn" type="button">📷</button>
       </div>
     </div>
 
@@ -123,7 +125,7 @@
       </div>
       <div class="form-group">
         <label>Qty Fisik</label>
-        <input type="number" id="qtyFisik" placeholder="0" min="0">
+        <input type="number" id="qtyFisik" placeholder="0" min="0" inputmode="numeric">
       </div>
     </div>
 
@@ -134,7 +136,7 @@
       <input type="text" id="reason" readonly placeholder="-">
     </div>
 
-    <button class="btn-add" id="addBtn" disabled>➕ Tambahkan ke Daftar</button>
+    <button class="btn-add" id="addBtn" disabled type="button">➕ Tambahkan ke Daftar</button>
   </div>
 
   <div class="table-header"><h2>Daftar Barang (<span id="countData">0</span>)</h2></div>
@@ -148,61 +150,79 @@
 </div>
 
 <div class="bottom-bar">
-  <button class="btn-save-all" id="saveAllBtn" disabled>💾 Simpan ke Spreadsheet <span class="badge" id="badgeCount">0</span></button>
+  <button class="btn-save-all" id="saveAllBtn" disabled type="button">💾 Simpan ke Spreadsheet <span class="badge" id="badgeCount">0</span></button>
 </div>
 
 <div class="scanner-modal" id="scannerModal">
   <div class="scanner-box">
-    <div class="scanner-header"><span>📷 Arahkan ke Barcode</span><button id="closeCamBtn">✕</button></div>
+    <div class="scanner-header"><span>📷 Arahkan ke Barcode</span><button id="closeCamBtn" type="button">✕</button></div>
     <div class="video-wrap">
-      <video id="video" playsinline muted></video>
+      <video id="video" playsinline muted autoplay></video>
       <div class="scan-overlay"><div class="scan-frame"></div><div class="scan-hint">Posisikan barcode di dalam kotak</div></div>
+      <div class="scan-loading" id="scanLoading">⏳ Menyalakan kamera...</div>
     </div>
   </div>
 </div>
 
 <script>
 // ============================================================
-// GANTI DENGAN URL APPS SCRIPT ANDA
+// KONFIGURASI API
 // ============================================================
 const API_URL = "https://script.google.com/macros/s/AKfycbwwhJl799jU9GDXXya_vjTqrVIlf9onmsfnsHnl9SQCPwFE2B8JLc3P3kIAgYBMoX5bAg/exec";
 
-const video = document.getElementById('video');
-const camBtn = document.getElementById('camBtn');
-const scannerModal = document.getElementById('scannerModal');
-const closeCamBtn = document.getElementById('closeCamBtn');
-const statusEl = document.getElementById('status');
-const saveAllBtn = document.getElementById('saveAllBtn');
-const addBtn = document.getElementById('addBtn');
+// ============================================================
+// ELEMENT REFS
+// ============================================================
+const video            = document.getElementById('video');
+const camBtn           = document.getElementById('camBtn');
+const scannerModal     = document.getElementById('scannerModal');
+const closeCamBtn      = document.getElementById('closeCamBtn');
+const statusEl         = document.getElementById('status');
+const saveAllBtn       = document.getElementById('saveAllBtn');
+const addBtn           = document.getElementById('addBtn');
+const scanLoading      = document.getElementById('scanLoading');
 
-const noSJEl = document.getElementById('noSuratJalan');
-const barcodeEl = document.getElementById('barcode');
-const namaEl = document.getElementById('nama');
-const qtySJEl = document.getElementById('qtySJ');
-const qtyFisikEl = document.getElementById('qtyFisik');
-const reasonEl = document.getElementById('reason');
-const selisihBox = document.getElementById('selisihBox');
-const tableBody = document.getElementById('tableBody');
-const emptyMessage = document.getElementById('emptyMessage');
-const countDataEl = document.getElementById('countData');
+const noSJEl           = document.getElementById('noSuratJalan');
+const barcodeEl        = document.getElementById('barcode');
+const namaEl           = document.getElementById('nama');
+const qtySJEl          = document.getElementById('qtySJ');
+const qtyFisikEl       = document.getElementById('qtyFisik');
+const reasonEl         = document.getElementById('reason');
+const selisihBox       = document.getElementById('selisihBox');
+const tableBody        = document.getElementById('tableBody');
+const emptyMessage     = document.getElementById('emptyMessage');
+const countDataEl      = document.getElementById('countData');
 
-let codeReader = null;
-let isScanning = false;
-let debounceTimer = null;
-let streamRef = null;
-let isBarangValid = false;
-let listData = [];
-let editIndex = -1;
+// ============================================================
+// STATE
+// ============================================================
+let codeReader        = null;
+let scannerControls   = null;
+let streamRef         = null;
+let isScanning        = false;
+let debounceTimer     = null;
+let isBarangValid     = false;
+let listData          = [];
+let editIndex         = -1;
 
+// ============================================================
+// STATUS UI
+// ============================================================
 function showStatus(msg, type = 'info') {
   statusEl.textContent = msg;
   statusEl.className = `status show ${type}`;
-  setTimeout(() => statusEl.classList.remove('show'), 4000);
+  clearTimeout(showStatus._t);
+  showStatus._t = setTimeout(() => statusEl.classList.remove('show'), 4000);
 }
 
+// ============================================================
+// LOCAL STORAGE
+// ============================================================
 function loadData() {
   const saved = localStorage.getItem('suratJalanData');
-  if (saved) listData = JSON.parse(saved);
+  if (saved) {
+    try { listData = JSON.parse(saved) || []; } catch(e) { listData = []; }
+  }
   const savedNo = localStorage.getItem('noSuratJalan');
   if (savedNo) noSJEl.value = savedNo;
   renderTable();
@@ -213,49 +233,155 @@ function saveDataToLocal() {
   localStorage.setItem('noSuratJalan', noSJEl.value.trim());
 }
 
+// ============================================================
+// KAMERA & SCANNER
+// ============================================================
 async function openCamera() {
+  // 1) Cek dukungan & konteks aman
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showStatus('❌ Browser tidak mendukung akses kamera.', 'error');
+    return;
+  }
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    showStatus('❌ Kamera butuh HTTPS. Buka aplikasi via https:// atau localhost.', 'error');
+    return;
+  }
+  if (typeof ZXing === 'undefined') {
+    showStatus('❌ Library ZXing belum termuat. Cek koneksi internet.', 'error');
+    return;
+  }
+
+  scannerModal.classList.add('show');
+  scanLoading.style.display = 'flex';
+  scanLoading.textContent = '⏳ Menyalakan kamera...';
+  camBtn.disabled = true;
+  isScanning = true;
+
+  // 2) Minta izin & ambil stream kamera (dengan fallback)
   try {
-    scannerModal.classList.add('show');
-    camBtn.disabled = true;
-    isScanning = true;
-
-    const constraints = {
-      audio: false,
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 }, advanced: [{ focusMode: 'continuous' }] }
+    streamRef = await getUserMediaWithFallback();
+  } catch (err) {
+    isScanning = false;
+    camBtn.disabled = false;
+    scannerModal.classList.remove('show');
+    const map = {
+      'NotAllowedError'   : 'Izin kamera ditolak. Buka setelan browser → izinkan kamera untuk situs ini.',
+      'NotFoundError'     : 'Tidak ada kamera terdeteksi di perangkat.',
+      'NotReadableError'  : 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi lain lalu coba lagi.',
+      'OverconstrainedError': 'Kamera tidak mendukung resolusi yang diminta.'
     };
+    showStatus('❌ ' + (map[err.name] || err.message || 'Gagal akses kamera'), 'error');
+    return;
+  }
 
-    try { streamRef = await navigator.mediaDevices.getUserMedia(constraints); }
-    catch (e) { streamRef = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); }
-
+  // 3) Pasang stream ke elemen video & tunggu metadata
+  try {
     video.srcObject = streamRef;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('muted', 'true');
+    video.muted = true;
     await video.play();
 
-    codeReader = new ZXing.BrowserMultiFormatReader();
-    codeReader.hints = new Map([
-      [ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E, ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.ITF]],
-      [ZXing.DecodeHintType.TRY_HARDER, true]
-    ]);
-
-    codeReader.decodeFromVideoElement(video, (result, err) => {
-      if (result && isScanning) onBarcodeScanned(result.text);
+    // Tunggu sampai video benar-benar siap
+    await new Promise((resolve) => {
+      if (video.readyState >= 2 && video.videoWidth > 0) return resolve();
+      const onLoaded = () => {
+        video.removeEventListener('loadeddata', onLoaded);
+        resolve();
+      };
+      video.addEventListener('loadeddata', onLoaded);
+      setTimeout(resolve, 2000);
     });
   } catch (err) {
-    showStatus('❌ Gagal akses kamera: ' + err.message, 'error');
+    showStatus('❌ Gagal menampilkan video: ' + err.message, 'error');
+    closeCamera();
+    return;
+  }
+
+  scanLoading.textContent = '🔎 Mencari barcode...';
+
+  // 4) Jalankan decoder ZXing
+  try {
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      ZXing.BarcodeFormat.QR_CODE,
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.UPC_E,
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.ITF,
+      ZXing.BarcodeFormat.CODE_93
+    ]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+    codeReader = new ZXing.BrowserMultiFormatReader(hints, 250);
+
+    scannerControls = await codeReader.decodeFromVideoElement(video, (result, err) => {
+      if (result && isScanning) {
+        const text = result.getText ? result.getText() : (result.text || '');
+        onBarcodeScanned(text);
+      }
+    });
+
+    scanLoading.style.display = 'none';
+
+  } catch (err) {
+    showStatus('❌ Gagal memulai decoder: ' + err.message, 'error');
     closeCamera();
   }
 }
 
+// Coba berbagai constraint — fallback jika device tidak support
+async function getUserMediaWithFallback() {
+  const attempts = [
+    { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 }, advanced: [{ focusMode: 'continuous' }] } },
+    { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { audio: false, video: { facingMode: 'environment' } },
+    { audio: false, video: true }
+  ];
+
+  let lastErr = null;
+  for (const c of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(c);
+    } catch (err) {
+      lastErr = err;
+      if (err.name === 'NotAllowedError' || err.name === 'NotFoundError') throw err;
+    }
+  }
+  throw lastErr || new Error('Kamera tidak dapat diakses');
+}
+
 function closeCamera() {
   isScanning = false;
-  if (codeReader) { try { codeReader.reset(); } catch(e) {} codeReader = null; }
-  if (streamRef) { streamRef.getTracks().forEach(t => t.stop()); streamRef = null; }
-  if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
+
+  if (scannerControls) {
+    try { scannerControls.stop(); } catch(e) {}
+    scannerControls = null;
+  }
+  if (codeReader) {
+    try { codeReader.reset(); } catch(e) {}
+    codeReader = null;
+  }
+  if (streamRef) {
+    streamRef.getTracks().forEach(t => { try { t.stop(); } catch(e) {} });
+    streamRef = null;
+  }
+  if (video.srcObject) {
+    try { video.srcObject.getTracks().forEach(t => t.stop()); } catch(e) {}
+    video.srcObject = null;
+  }
+
   scannerModal.classList.remove('show');
+  scanLoading.style.display = 'flex';
   camBtn.disabled = false;
 }
 
 async function onBarcodeScanned(text) {
   if (!isScanning) return;
+  if (!text) return;
   isScanning = false;
   beep();
   closeCamera();
@@ -263,6 +389,9 @@ async function onBarcodeScanned(text) {
   await lookupBarcode(text);
 }
 
+// ============================================================
+// LOOKUP BARCODE
+// ============================================================
 async function lookupBarcode(text) {
   const barcode = String(text || '').trim();
   if (!barcode) return;
@@ -277,12 +406,11 @@ async function lookupBarcode(text) {
   hitungSelisih();
 
   try {
-    const res = await fetch(API_URL + '?barcode=' + encodeURIComponent(barcode), { method: 'GET' });
+    const res  = await fetch(API_URL + '?barcode=' + encodeURIComponent(barcode), { method: 'GET' });
     const data = await res.json();
 
     if (data.found && data.item) {
       namaEl.value = data.item.nama || '-';
-
       const valSJ = data.item.qtySJ;
       qtySJEl.value = (valSJ !== null && valSJ !== undefined) ? valSJ : 0;
 
@@ -296,24 +424,26 @@ async function lookupBarcode(text) {
       } else {
         showStatus('⚠️ Barang ditemukan, tapi Qty Surat Jalan 0/kosong di Sheet.', 'error');
       }
-
       validateForm();
+
     } else {
       namaEl.value = 'Tidak ditemukan';
-      showStatus('❌ Barcode tidak terdaftar di SJ maupun DataBarang. Tetap bisa disimpan sebagai "Tidak dikenal".', 'error');
-      // Izinkan tetap diinput agar bisa dilaporkan
+      showStatus('❌ Barcode tidak terdaftar. Tetap bisa disimpan sebagai "Tidak dikenal".', 'error');
       isBarangValid = true;
       qtySJEl.value = 0;
       qtyFisikEl.focus();
     }
   } catch (err) {
     namaEl.value = 'Error koneksi';
-    showStatus('⚠️ Gagal terhubung ke server', 'error');
+    showStatus('⚠️ Gagal terhubung ke server: ' + err.message, 'error');
   }
 }
 
+// ============================================================
+// HITUNG SELISIH & VALIDASI
+// ============================================================
 function hitungSelisih() {
-  const sj = parseFloat(qtySJEl.value) || 0;
+  const sj    = parseFloat(qtySJEl.value) || 0;
   const fisik = parseFloat(qtyFisikEl.value);
 
   if (isNaN(fisik)) {
@@ -349,31 +479,30 @@ function hitungSelisih() {
 
 function validateForm() {
   const fisik = parseFloat(qtyFisikEl.value);
-  if (isBarangValid && !isNaN(fisik)) {
-    addBtn.disabled = false;
-  } else {
-    addBtn.disabled = true;
-  }
+  addBtn.disabled = !(isBarangValid && !isNaN(fisik));
 }
 
+// ============================================================
+// TAMBAH / EDIT / HAPUS
+// ============================================================
 function tambahData() {
   if (editIndex > -1) {
-    listData[editIndex].qtySJ = parseFloat(qtySJEl.value) || 0;
+    listData[editIndex].qtySJ    = parseFloat(qtySJEl.value) || 0;
     listData[editIndex].qtyFisik = parseFloat(qtyFisikEl.value) || 0;
-    listData[editIndex].selisih = listData[editIndex].qtyFisik - listData[editIndex].qtySJ;
-    listData[editIndex].reason = reasonEl.value;
+    listData[editIndex].selisih  = listData[editIndex].qtyFisik - listData[editIndex].qtySJ;
+    listData[editIndex].reason   = reasonEl.value;
     showStatus('✅ Data diperbarui', 'success');
     editIndex = -1;
     addBtn.textContent = '➕ Tambahkan ke Daftar';
     addBtn.style.background = '#3b82f6';
   } else {
     listData.push({
-      barcode: barcodeEl.value.trim(),
-      nama: namaEl.value,
-      qtySJ: parseFloat(qtySJEl.value) || 0,
+      barcode : barcodeEl.value.trim(),
+      nama    : namaEl.value,
+      qtySJ   : parseFloat(qtySJEl.value) || 0,
       qtyFisik: parseFloat(qtyFisikEl.value) || 0,
-      selisih: (parseFloat(qtyFisikEl.value) || 0) - (parseFloat(qtySJEl.value) || 0),
-      reason: reasonEl.value
+      selisih : (parseFloat(qtyFisikEl.value) || 0) - (parseFloat(qtySJEl.value) || 0),
+      reason  : reasonEl.value
     });
     showStatus('✅ Barang ditambahkan', 'success');
   }
@@ -397,7 +526,7 @@ function renderTable() {
     tr.className = item.selisih < 0 ? 'row-kurang' : (item.selisih > 0 ? 'row-lebih' : 'row-pas');
 
     const txtSelisih = item.selisih > 0 ? '+' + item.selisih : item.selisih;
-    const reasonTxt = item.reason || (item.selisih === 0 ? 'Sesuai'
+    const reasonTxt  = item.reason || (item.selisih === 0 ? 'Sesuai'
                      : item.selisih > 0 ? 'Barang Lebih' : 'Barang Kurang');
 
     tr.innerHTML = `
@@ -421,12 +550,12 @@ function renderTable() {
 
 window.editData = function(index) {
   const item = listData[index];
-  barcodeEl.value = item.barcode;
-  namaEl.value = item.nama;
-  qtySJEl.value = item.qtySJ;
+  barcodeEl.value  = item.barcode;
+  namaEl.value     = item.nama;
+  qtySJEl.value    = item.qtySJ;
   qtyFisikEl.value = item.qtyFisik;
-  isBarangValid = true;
-  editIndex = index;
+  isBarangValid    = true;
+  editIndex        = index;
   hitungSelisih();
   if (item.reason) reasonEl.value = item.reason;
   addBtn.textContent = '💾 Simpan Perubahan';
@@ -454,6 +583,9 @@ function resetForm() {
   barcodeEl.focus();
 }
 
+// ============================================================
+// SIMPAN KE SPREADSHEET
+// ============================================================
 async function simpanKeSpreadsheet() {
   if (listData.length === 0) return;
   const noSJ = noSJEl.value.trim();
@@ -476,7 +608,10 @@ async function simpanKeSpreadsheet() {
 
     if (data.success) {
       showStatus('✅ ' + (data.message || 'Berhasil disimpan ke Spreadsheet!'), 'success');
-      listData = []; saveDataToLocal(); renderTable(); resetForm();
+      listData = [];
+      saveDataToLocal();
+      renderTable();
+      resetForm();
     } else {
       showStatus('❌ Gagal: ' + data.message, 'error');
       saveAllBtn.disabled = false;
@@ -491,10 +626,14 @@ async function simpanKeSpreadsheet() {
   }
 }
 
+// ============================================================
+// BEEP
+// ============================================================
 function beep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
     osc.frequency.value = 880;
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
@@ -503,39 +642,46 @@ function beep() {
   } catch (e) {}
 }
 
-// ============ EVENT LISTENERS ============
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
 camBtn.addEventListener('click', openCamera);
 closeCamBtn.addEventListener('click', closeCamera);
 addBtn.addEventListener('click', tambahData);
 saveAllBtn.addEventListener('click', simpanKeSpreadsheet);
 
-// Simpan No SJ ke localStorage saat diketik
 noSJEl.addEventListener('input', () => {
   localStorage.setItem('noSuratJalan', noSJEl.value.trim());
 });
 
-// Ketik manual barcode (debounce)
 barcodeEl.addEventListener('input', () => {
   clearTimeout(debounceTimer);
   const val = barcodeEl.value.trim();
   if (val.length < 4) return;
-  debounceTimer = setTimeout(() => { if (barcodeEl.value.trim() === val) lookupBarcode(val); }, 800);
+  debounceTimer = setTimeout(() => {
+    if (barcodeEl.value.trim() === val) lookupBarcode(val);
+  }, 800);
 });
 
 barcodeEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); clearTimeout(debounceTimer); lookupBarcode(barcodeEl.value.trim()); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    clearTimeout(debounceTimer);
+    lookupBarcode(barcodeEl.value.trim());
+  }
 });
 
-// Hitung selisih saat qty fisik berubah
 qtyFisikEl.addEventListener('input', hitungSelisih);
 
-// 🔥 ENTER di Qty Fisik = tambahkan ke daftar
 qtyFisikEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     if (!addBtn.disabled) tambahData();
   }
 });
+
+window.addEventListener('pagehide', closeCamera);
+window.addEventListener('beforeunload', closeCamera);
 
 loadData();
 </script>
