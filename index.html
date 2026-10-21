@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Surat Jalan - Cek Fisik</title>
-<script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+<!-- Ganti dengan html5-qrcode -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -19,24 +20,22 @@
   header h1 { font-size: 20px; font-weight: 600; }
   header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
 
-  /* Scanner Modal */
+  /* Modal kamera baru */
   .scanner-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 999; display: none; align-items: center; justify-content: center; }
   .scanner-modal.show { display: flex; }
   .scanner-box { width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; }
   .scanner-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #111; color: #fff; }
+  .scanner-header span { font-size: 15px; }
   .scanner-header button { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; padding: 4px 8px; }
-  .video-wrap { position: relative; flex: 1; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  #video { width: 100%; height: 100%; object-fit: cover; }
-  .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-  .scan-frame { width: 90%; height: 45%; border: 3px solid #3b82f6; border-radius: 16px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
-  .scan-hint { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 13px; background: rgba(0,0,0,0.75); padding: 8px 16px; border-radius: 20px; text-align: center; max-width: 80%; }
-  .scan-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 14px; background: rgba(0,0,0,0.7); z-index: 5; text-align: center; padding: 20px; }
-  .spinner {
-    width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.2);
-    border-top-color: #3b82f6; border-radius: 50%;
-    animation: spin 0.8s linear infinite; margin-bottom: 12px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .scanner-body { flex: 1; position: relative; background: #000; overflow: hidden; }
+  /* html5-qrcode akan mengisi area ini */
+  #qr-reader { width: 100%; height: 100%; }
+  #qr-reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+  /* Sembunyikan UI bawaan yang tidak perlu */
+  #qr-reader__dashboard_section_csr { display: none !important; }
+  #qr-reader__header_message { display: none !important; }
+  #qr-reader__scan_region { background: transparent !important; }
+  #qr-reader__scan_region img { display: none !important; }
 
   .scanner-controls { display: flex; gap: 8px; padding: 12px 16px; background: #111; }
   .scanner-controls button {
@@ -44,7 +43,6 @@
     font-size: 13px; font-weight: 600; cursor: pointer;
     background: #334155; color: #fff;
   }
-  .scanner-controls button.primary { background: #3b82f6; }
   .scanner-controls button:active { transform: scale(0.97); }
   .scanner-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -167,23 +165,15 @@
   <button class="btn-save-all" id="saveAllBtn" disabled type="button">💾 Simpan ke Spreadsheet <span class="badge" id="badgeCount">0</span></button>
 </div>
 
-<!-- SCANNER MODAL -->
+<!-- SCANNER MODAL BARU -->
 <div class="scanner-modal" id="scannerModal">
   <div class="scanner-box">
     <div class="scanner-header">
       <span>📷 Arahkan ke Barcode</span>
       <button id="closeCamBtn" type="button">✕</button>
     </div>
-    <div class="video-wrap">
-      <video id="video" playsinline muted autoplay></video>
-      <div class="scan-overlay">
-        <div class="scan-frame"></div>
-      </div>
-      <div class="scan-hint" id="scanHint">Posisikan barcode di dalam kotak</div>
-      <div class="scan-loading" id="scanLoading">
-        <div class="spinner"></div>
-        <div id="scanLoadingText">Menyalakan kamera...</div>
-      </div>
+    <div class="scanner-body">
+      <div id="qr-reader"></div>
     </div>
     <div class="scanner-controls">
       <button id="torchBtn" type="button" disabled>🔦 Flash</button>
@@ -203,16 +193,11 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwwhJl799jU9GDXXya_vjTq
 // ============================================================
 // ELEMENT REFS
 // ============================================================
-const video            = document.getElementById('video');
-const camBtn           = document.getElementById('camBtn');
 const scannerModal     = document.getElementById('scannerModal');
 const closeCamBtn      = document.getElementById('closeCamBtn');
 const statusEl         = document.getElementById('status');
 const saveAllBtn       = document.getElementById('saveAllBtn');
 const addBtn           = document.getElementById('addBtn');
-const scanLoading      = document.getElementById('scanLoading');
-const scanLoadingText  = document.getElementById('scanLoadingText');
-const scanHint         = document.getElementById('scanHint');
 const torchBtn         = document.getElementById('torchBtn');
 const uploadBtn        = document.getElementById('uploadBtn');
 const imageUpload      = document.getElementById('imageUpload');
@@ -227,19 +212,19 @@ const selisihBox       = document.getElementById('selisihBox');
 const tableBody        = document.getElementById('tableBody');
 const emptyMessage     = document.getElementById('emptyMessage');
 const countDataEl      = document.getElementById('countData');
+const camBtn           = document.getElementById('camBtn');
 
 // ============================================================
 // STATE
 // ============================================================
-let codeReader        = null;
-let scannerControls   = null;
-let isScanning        = false;
-let debounceTimer     = null;
-let isBarangValid     = false;
-let listData          = [];
-let editIndex         = -1;
-let torchOn           = false;
-let torchSupported    = false;
+let html5QrCode        = null;
+let isScanning         = false;
+let debounceTimer      = null;
+let isBarangValid      = false;
+let listData           = [];
+let editIndex          = -1;
+let torchOn            = false;
+let torchSupported     = false;
 
 // ============================================================
 // STATUS UI
@@ -270,215 +255,120 @@ function saveDataToLocal() {
 }
 
 // ============================================================
-// KAMERA — OPEN (VERSI DIPERBAIKI)
+// KAMERA — HTML5-QRCODE (BARU)
 // ============================================================
 async function openCamera() {
-  // Cek dukungan browser
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showStatus('❌ Browser tidak mendukung akses kamera. Gunakan Chrome/Safari terbaru.', 'error');
-    return;
-  }
   if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-    showStatus('❌ Kamera hanya bisa diakses via HTTPS. Pastikan URL diawali https://', 'error');
-    return;
-  }
-  if (typeof ZXing === 'undefined') {
-    showStatus('❌ Library ZXing belum termuat. Cek koneksi internet lalu refresh halaman.', 'error');
+    showStatus('❌ Kamera hanya bisa diakses via HTTPS.', 'error');
     return;
   }
 
-  // Reset state UI
   scannerModal.classList.add('show');
-  scanLoading.style.display = 'flex';
-  scanLoadingText.textContent = 'Menyalakan kamera...';
-  scanHint.style.display = 'block';
-  scanHint.textContent = 'Posisikan barcode di dalam kotak';
   camBtn.disabled = true;
-  isScanning = true;
-  torchOn = false;
-  torchBtn.textContent = '🔦 Flash';
-  torchBtn.disabled = true;
-  torchBtn.style.opacity = '0.4';
 
-  // Hints decoder
-  const hints = new Map();
-  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-    ZXing.BarcodeFormat.QR_CODE,
-    ZXing.BarcodeFormat.EAN_13,
-    ZXing.BarcodeFormat.EAN_8,
-    ZXing.BarcodeFormat.UPC_A,
-    ZXing.BarcodeFormat.UPC_E,
-    ZXing.BarcodeFormat.CODE_128,
-    ZXing.BarcodeFormat.CODE_39,
-    ZXing.BarcodeFormat.ITF,
-    ZXing.BarcodeFormat.CODE_93,
-    ZXing.BarcodeFormat.DATA_MATRIX
-  ]);
-  hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-
-  codeReader = new ZXing.BrowserMultiFormatReader(hints, 150);
-
-  // Constraint bertingkat untuk kompatibilitas maksimal
-  const constraints = {
-    audio: false,
-    video: {
-      facingMode: { ideal: 'environment' },
-      width:  { ideal: 1280 },
-      height: { ideal: 720 },
-      advanced: [{ focusMode: 'continuous' }]
-    }
-  };
+  // Inisialisasi html5-qrcode
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("qr-reader");
+  }
 
   try {
-    // KUNCI PERBAIKAN: gunakan decodeFromConstraints
-    // ZXing yang mengelola stream sendiri
-    scannerControls = await codeReader.decodeFromConstraints(
-      constraints,
-      video,
-      (result, err) => {
-        if (result && isScanning) {
-          const text = result.getText ? result.getText() : (result.text || '');
-          if (text) onBarcodeScanned(text);
+    const cameras = await Html5Qrcode.getCameras();
+    if (!cameras || cameras.length === 0) {
+      showStatus('❌ Tidak ada kamera terdeteksi.', 'error');
+      closeCamera();
+      return;
+    }
+
+    // Pilih kamera belakang
+    const backCamera = cameras.find(c => 
+      c.label.toLowerCase().includes('back') || 
+      c.label.toLowerCase().includes('belakang') ||
+      c.label.toLowerCase().includes('rear')
+    ) || cameras[cameras.length - 1];
+
+    isScanning = true;
+
+    await html5QrCode.start(
+      backCamera.id,
+      {
+        fps: 10,
+        qrbox: { width: 280, height: 160 },
+        aspectRatio: 1.0,
+        disableFlip: false,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
         }
-        // err biasanya NotFoundException tiap frame — normal
-      }
+      },
+      (decodedText) => {
+        if (!isScanning) return;
+        isScanning = false;
+        beep();
+        if (navigator.vibrate) navigator.vibrate(80);
+        closeCamera();
+        barcodeEl.value = decodedText;
+        lookupBarcode(decodedText);
+      },
+      () => {} // abaikan error per-frame
     );
 
-    // Sembunyikan loading setelah stream jalan
-    scanLoading.style.display = 'none';
-
-    // Deteksi torch dari stream internal ZXing
-    detectTorchSupportZXing();
-
-    // Coba apply zoom jika didukung
-    applyZoomIfSupportedZXing();
+    // Deteksi torch setelah kamera aktif
+    setTimeout(() => detectTorchHtml5(), 500);
 
   } catch (err) {
     console.error('Camera error:', err);
-    isScanning = false;
-    camBtn.disabled = false;
-    scannerModal.classList.remove('show');
-    scanLoading.style.display = 'flex';
-
-    const map = {
-      'NotAllowedError'     : 'Izin kamera ditolak. Buka setelan browser → izinkan kamera untuk situs ini, lalu refresh.',
-      'NotFoundError'       : 'Tidak ada kamera terdeteksi di perangkat.',
-      'NotReadableError'    : 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi lain lalu coba lagi.',
-      'OverconstrainedError': 'Kamera tidak mendukung resolusi yang diminta. Coba browser lain.',
-      'SecurityError'       : 'Akses kamera diblokir. Pastikan memakai HTTPS.',
-      'NotSupportedError'   : 'Fitur kamera tidak didukung browser ini. Gunakan Chrome/Safari terbaru.'
-    };
-    showStatus('❌ ' + (map[err.name] || err.message || 'Gagal akses kamera'), 'error');
+    showStatus('❌ Gagal akses kamera: ' + (err.message || err), 'error');
     closeCamera();
   }
 }
 
-// Ambil stream video dari scannerControls ZXing
-function getZXingStream() {
-  if (!scannerControls) return null;
-  return scannerControls.streamVideo || scannerControls.stream || null;
-}
-
-// Deteksi torch dari stream ZXing
-function detectTorchSupportZXing() {
+// Deteksi torch dari html5-qrcode
+function detectTorchHtml5() {
   torchSupported = false;
   try {
-    const stream = getZXingStream();
-    if (!stream) return;
-    const track = stream.getVideoTracks()[0];
+    const video = document.querySelector('#qr-reader video');
+    if (!video || !video.srcObject) return;
+    const track = video.srcObject.getVideoTracks()[0];
     if (track && track.getCapabilities) {
       const caps = track.getCapabilities();
       torchSupported = !!caps.torch;
-      console.log('✅ Torch supported:', torchSupported, 'Caps:', caps);
     }
-  } catch (e) {
-    console.warn('Deteksi torch gagal:', e.message);
-  }
+  } catch (e) {}
   torchBtn.disabled = !torchSupported;
   torchBtn.style.opacity = torchSupported ? '1' : '0.4';
 }
 
-// Zoom otomatis dari stream ZXing
-async function applyZoomIfSupportedZXing() {
-  try {
-    const stream = getZXingStream();
-    if (!stream) return;
-    const track = stream.getVideoTracks()[0];
-    if (!track || !track.getCapabilities) return;
-    const caps = track.getCapabilities();
-    if (caps.zoom) {
-      const target = Math.min(caps.zoom.max, Math.max(caps.zoom.min, 2));
-      await track.applyConstraints({ advanced: [{ zoom: target }] });
-      console.log('✅ Zoom diterapkan:', target);
-    }
-  } catch (e) {
-    console.warn('Zoom tidak didukung:', e.message);
-  }
-}
-
-// Toggle flash dari stream ZXing
+// Toggle torch
 async function toggleTorch() {
   if (!torchSupported) return;
   try {
-    const stream = getZXingStream();
-    if (!stream) return;
-    const track = stream.getVideoTracks()[0];
+    const video = document.querySelector('#qr-reader video');
+    const track = video.srcObject.getVideoTracks()[0];
     torchOn = !torchOn;
     await track.applyConstraints({ advanced: [{ torch: torchOn }] });
     torchBtn.textContent = torchOn ? '🔦 Flash ON' : '🔦 Flash';
   } catch (e) {
-    console.warn('Torch gagal:', e.message);
-    showStatus('⚠️ Flash tidak bisa diaktifkan: ' + e.message, 'error');
+    console.warn('Torch gagal:', e);
   }
 }
 
-// ============================================================
-// KAMERA — CLOSE (VERSI DIPERBAIKI)
-// ============================================================
-function closeCamera() {
+// Tutup kamera
+async function closeCamera() {
   isScanning = false;
-
-  // Stop scannerControls (ZXing akan stop stream internalnya)
-  if (scannerControls) {
-    try { scannerControls.stop(); } catch(e) { console.warn('stop err:', e); }
-    scannerControls = null;
+  if (html5QrCode) {
+    try {
+      if (html5QrCode.isScanning) {
+        await html5QrCode.stop();
+      }
+      html5QrCode.clear();
+    } catch (e) {}
   }
-  if (codeReader) {
-    try { codeReader.reset(); } catch(e) {}
-    codeReader = null;
-  }
-
-  // Pastikan stream video dilepas
-  try {
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach(t => { try { t.stop(); } catch(e) {} });
-      video.srcObject = null;
-    }
-  } catch(e) {}
-
   scannerModal.classList.remove('show');
-  scanLoading.style.display = 'flex';
-  scanLoadingText.textContent = 'Menyalakan kamera...';
   camBtn.disabled = false;
   torchOn = false;
   torchSupported = false;
   torchBtn.textContent = '🔦 Flash';
   torchBtn.disabled = true;
   torchBtn.style.opacity = '0.4';
-}
-
-// ============================================================
-// HASIL SCAN
-// ============================================================
-async function onBarcodeScanned(text) {
-  if (!isScanning) return;
-  if (!text) return;
-  isScanning = false;   // cegah scan ganda
-  beep();
-  if (navigator.vibrate) navigator.vibrate(80);
-  closeCamera();
-  barcodeEl.value = text;
-  await lookupBarcode(text);
 }
 
 // ============================================================
@@ -495,24 +385,14 @@ imageUpload.addEventListener('change', async (e) => {
 
   showStatus('🔎 Membaca barcode dari gambar...', 'info');
   try {
-    const reader = new ZXing.BrowserMultiFormatReader();
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
-
-    const result = await reader.decodeFromImageElement(img);
-    if (result) {
-      const text = result.getText ? result.getText() : (result.text || '');
-      beep();
-      if (navigator.vibrate) navigator.vibrate(80);
-      barcodeEl.value = text;
-      await lookupBarcode(text);
-    }
+    if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
+    const result = await html5QrCode.scanFile(file, false);
+    beep();
+    if (navigator.vibrate) navigator.vibrate(80);
+    barcodeEl.value = result;
+    await lookupBarcode(result);
   } catch (err) {
-    showStatus('❌ Gambar tidak mengandung barcode yang bisa dibaca. Coba foto lebih jelas.', 'error');
+    showStatus('❌ Gambar tidak mengandung barcode yang bisa dibaca.', 'error');
   } finally {
     imageUpload.value = '';
   }
